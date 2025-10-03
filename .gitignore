@@ -1,0 +1,10 @@
+# Ignorar entornos virtuales
+.venv*/
+*/.venv*/
+
+# Ignorar logs del servidor
+server/logs/
+
+*.log
+*.o
+server

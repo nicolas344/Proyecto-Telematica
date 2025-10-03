@@ -90,6 +90,8 @@ void* handle_client(void* arg) {
     free(arg);
     
     char buffer[BUFFER_SIZE];
+    char accumulated[BUFFER_SIZE * 2] = {0}; // Buffer acumulado
+    int acc_len = 0;
     char response[BUFFER_SIZE];
     Message msg;
     
@@ -123,13 +125,41 @@ void* handle_client(void* arg) {
         
         buffer[bytes_received] = '\0';
         
+        // Acumular el mensaje recibido
+        if (acc_len + bytes_received < BUFFER_SIZE * 2 - 1) {
+            strcat(accumulated, buffer);
+            acc_len += bytes_received;
+        }
+        
+        // Buscar el fin del mensaje (\n\n o \r\n\r\n)
+        char* msg_end = strstr(accumulated, "\n\n");
+        if (!msg_end) {
+            msg_end = strstr(accumulated, "\r\n\r\n");
+        }
+        
+        if (!msg_end) {
+            // Mensaje incompleto, seguir acumulando
+            continue;
+        }
+        
+        // Tenemos un mensaje completo
+        *msg_end = '\0'; // Terminar el mensaje
+        
         // Parsear mensaje
-        if (!parse_message(buffer, &msg)) {
+        if (!parse_message(accumulated, &msg)) {
             log_message(client_ip, client_port, "ERROR", "Mensaje mal formado");
             build_response(response, MSG_RESPONSE_ERROR, "Formato de mensaje inválido");
             send(client_socket, response, strlen(response), 0);
+            
+            // Limpiar buffer acumulado
+            memset(accumulated, 0, sizeof(accumulated));
+            acc_len = 0;
             continue;
         }
+        
+        // Limpiar buffer acumulado para el siguiente mensaje
+        memset(accumulated, 0, sizeof(accumulated));
+        acc_len = 0;
         
         // Procesar según tipo de mensaje
         switch (msg.type) {
@@ -148,7 +178,7 @@ void* handle_client(void* arg) {
                 
                 if (user_type == USER_ADMIN) {
                     build_response(response, MSG_RESPONSE_OK, 
-                                 "Conectado como ADMIN. Debe autenticarse con AUTH");
+                                 "Conectado como ADMIN. Debe autenticarse para enviar comandos");
                 } else {
                     build_response(response, MSG_RESPONSE_OK, 
                                  "Conectado como OBSERVER. Recibirá telemetría automáticamente");

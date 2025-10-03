@@ -1,4 +1,3 @@
-/ ============= telemetry.c =============
 #include "telemetry.h"
 #include "logger.h"
 #include <unistd.h>
