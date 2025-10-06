@@ -1,10 +1,60 @@
-# Ignorar entornos virtuales
-.venv*/
-*/.venv*/
-
-# Ignorar logs del servidor
-server/logs/
-
+# ==========================
+# ARCHIVOS Y CARPETAS GENERALES
+# ==========================
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
 *.log
+*.tmp
+
+# Archivos de VSCode
+.vscode/
+*.code-workspace
+
+# Entorno virtual de Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos compilados de C
 *.o
-server
+*.out
+*.exe
+*.a
+*.so
+
+# Archivos de compilación intermedia o binarios del servidor
+/server
+/server.log
+
+# Archivos de compilación generados por Makefile
+*.dSYM/
+*.obj
+
+# Archivos de Java compilados
+*.class
+*.jar
+
+# Archivos del compilador de Java que no son fuente
+*.iml
+.idea/
+
+# Archivos de ejecución del cliente Java o Py
+*.swp
+*.swo
+
+# Archivos de depuración
+*.bak
+*.stackdump
+
+# ==========================
+# EXCEPCIONES (mantener el código fuente)
+# ==========================
+!*.c
+!*.h
+!*.java
+!*.py
+!Makefile
+!.gitignore
