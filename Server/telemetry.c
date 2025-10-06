@@ -121,42 +121,41 @@ int can_execute_command(CommandType command, char* reason) {
     return 1; // Comando puede ejecutarse
 }
 
+static void rotate_direction(int left) {
+    const char* directions[] = {"NORTH", "EAST", "SOUTH", "WEST"};
+    int current = 0;
+    
+    for (int i = 0; i < 4; i++) {
+        if (strcmp(vehicle_state.direction, directions[i]) == 0) {
+            current = i;
+            break;
+        }
+    }
+    
+    current = left ? (current + 3) % 4 : (current + 1) % 4;
+    strcpy(vehicle_state.direction, directions[current]);
+}
+
 void update_vehicle_state(CommandType command) {
     pthread_mutex_lock(&vehicle_mutex);
     
     switch (command) {
         case CMD_SPEED_UP:
-            vehicle_state.speed += 10.0;
-            if (vehicle_state.speed > 100.0) vehicle_state.speed = 100.0;
+            vehicle_state.speed = (vehicle_state.speed + 10.0 > 100.0) ? 100.0 : vehicle_state.speed + 10.0;
             vehicle_state.is_moving = 1;
             break;
             
         case CMD_SLOW_DOWN:
-            vehicle_state.speed -= 10.0;
-            if (vehicle_state.speed < 0.0) vehicle_state.speed = 0.0;
-            if (vehicle_state.speed == 0.0) vehicle_state.is_moving = 0;
+            vehicle_state.speed = (vehicle_state.speed - 10.0 < 0.0) ? 0.0 : vehicle_state.speed - 10.0;
+            vehicle_state.is_moving = (vehicle_state.speed > 0.0);
             break;
             
         case CMD_TURN_LEFT:
-            if (strcmp(vehicle_state.direction, "NORTH") == 0)
-                strcpy(vehicle_state.direction, "WEST");
-            else if (strcmp(vehicle_state.direction, "WEST") == 0)
-                strcpy(vehicle_state.direction, "SOUTH");
-            else if (strcmp(vehicle_state.direction, "SOUTH") == 0)
-                strcpy(vehicle_state.direction, "EAST");
-            else if (strcmp(vehicle_state.direction, "EAST") == 0)
-                strcpy(vehicle_state.direction, "NORTH");
+            rotate_direction(1);
             break;
             
         case CMD_TURN_RIGHT:
-            if (strcmp(vehicle_state.direction, "NORTH") == 0)
-                strcpy(vehicle_state.direction, "EAST");
-            else if (strcmp(vehicle_state.direction, "EAST") == 0)
-                strcpy(vehicle_state.direction, "SOUTH");
-            else if (strcmp(vehicle_state.direction, "SOUTH") == 0)
-                strcpy(vehicle_state.direction, "WEST");
-            else if (strcmp(vehicle_state.direction, "WEST") == 0)
-                strcpy(vehicle_state.direction, "NORTH");
+            rotate_direction(0);
             break;
             
         default:

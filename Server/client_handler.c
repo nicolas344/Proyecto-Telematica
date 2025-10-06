@@ -85,6 +85,27 @@ void list_connected_users(char* buffer) {
     pthread_mutex_unlock(&clients_mutex);
 }
 
+// Función auxiliar para verificar admin autenticado
+static int check_admin_auth(int client_idx, int client_socket, const char* client_ip, int client_port) {
+    if (clients[client_idx].user_type != USER_ADMIN || !clients[client_idx].authenticated) {
+        log_message(client_ip, client_port, "AUTH_ERROR", "No autorizado");
+        char response[BUFFER_SIZE];
+        build_response(response, MSG_RESPONSE_ERROR, "Debe ser administrador autenticado");
+        send(client_socket, response, strlen(response), 0);
+        return 0;
+    }
+    
+    if (!validate_token(clients[client_idx].username, clients[client_idx].auth_token)) {
+        log_message(client_ip, client_port, "TOKEN_ERROR", "Token inválido o expirado");
+        char response[BUFFER_SIZE];
+        build_response(response, MSG_RESPONSE_ERROR, "Token inválido. Reautentíquese");
+        send(client_socket, response, strlen(response), 0);
+        return 0;
+    }
+    
+    return 1;
+}
+
 void* handle_client(void* arg) {
     int client_socket = *((int*)arg);
     free(arg);
@@ -232,92 +253,45 @@ void* handle_client(void* arg) {
             }
             
             case MSG_COMMAND: {
-                // Ejecutar comando
-                if (clients[client_idx].user_type != USER_ADMIN || 
-                    !clients[client_idx].authenticated) {
-                    log_message(client_ip, client_port, "COMMAND_ERROR", 
-                               "No autorizado para enviar comandos");
-                    build_response(response, MSG_RESPONSE_ERROR, 
-                                 "Debe ser administrador autenticado");
-                    send(client_socket, response, strlen(response), 0);
-                    break;
-                }
-                
-                // Validar token
-                if (!validate_token(clients[client_idx].username, 
-                                   clients[client_idx].auth_token)) {
-                    log_message(client_ip, client_port, "COMMAND_ERROR", 
-                               "Token inválido o expirado");
-                    build_response(response, MSG_RESPONSE_ERROR, 
-                                 "Token inválido. Reautentíquese");
-                    send(client_socket, response, strlen(response), 0);
-                    break;
-                }
+                if (!check_admin_auth(client_idx, client_socket, client_ip, client_port)) break;
                 
                 CommandType cmd = parse_command(msg.command);
-                
                 if (cmd == CMD_UNKNOWN) {
-                    log_message(client_ip, client_port, "COMMAND_ERROR", 
-                               "Comando desconocido");
-                    build_response(response, MSG_RESPONSE_ERROR, 
-                                 "Comando no reconocido");
+                    log_message(client_ip, client_port, "COMMAND_ERROR", "Comando desconocido");
+                    build_response(response, MSG_RESPONSE_ERROR, "Comando no reconocido");
                     send(client_socket, response, strlen(response), 0);
                     break;
                 }
                 
-                // Verificar si se puede ejecutar
                 char reason[256];
                 if (!can_execute_command(cmd, reason)) {
-                    char log_msg[512];
-                    sprintf(log_msg, "Comando %s rechazado: %s", 
-                           command_to_string(cmd), reason);
-                    log_message(client_ip, client_port, "COMMAND_REJECTED", log_msg);
-                    
-                    char resp_data[512];
-                    sprintf(resp_data, "Comando rechazado: %s", reason);
-                    build_response(response, MSG_RESPONSE_ERROR, resp_data);
+                    log_message(client_ip, client_port, "COMMAND_REJECTED", reason);
+                    build_response(response, MSG_RESPONSE_ERROR, reason);
                     send(client_socket, response, strlen(response), 0);
                     break;
                 }
                 
-                // Ejecutar comando
                 update_vehicle_state(cmd);
                 
-                char log_msg[256];
-                sprintf(log_msg, "Comando ejecutado: %s", command_to_string(cmd));
-                log_message(client_ip, client_port, "COMMAND_OK", log_msg);
-                
-                char resp_data[256];
                 pthread_mutex_lock(&vehicle_mutex);
-                sprintf(resp_data, "Comando ejecutado correctamente. Speed: %.2f km/h, Direction: %s",
-                       vehicle_state.speed, vehicle_state.direction);
+                sprintf(response, "Comando %s ejecutado. Speed: %.2f km/h, Direction: %s",
+                       command_to_string(cmd), vehicle_state.speed, vehicle_state.direction);
                 pthread_mutex_unlock(&vehicle_mutex);
                 
-                build_response(response, MSG_RESPONSE_OK, resp_data);
+                log_message(client_ip, client_port, "COMMAND_OK", response);
+                build_response(response, MSG_RESPONSE_OK, response);
                 send(client_socket, response, strlen(response), 0);
                 break;
             }
             
             case MSG_LIST_USERS: {
-                // Listar usuarios conectados
-                if (clients[client_idx].user_type != USER_ADMIN || 
-                    !clients[client_idx].authenticated) {
-                    log_message(client_ip, client_port, "LIST_ERROR", 
-                               "No autorizado");
-                    build_response(response, MSG_RESPONSE_ERROR, 
-                                 "Debe ser administrador autenticado");
-                    send(client_socket, response, strlen(response), 0);
-                    break;
-                }
+                if (!check_admin_auth(client_idx, client_socket, client_ip, client_port)) break;
                 
                 char user_list[BUFFER_SIZE];
                 list_connected_users(user_list);
-                
-                log_message(client_ip, client_port, "LIST_USERS", 
-                           "Consultó lista de usuarios");
-                
                 build_response(response, MSG_RESPONSE_OK, user_list);
                 send(client_socket, response, strlen(response), 0);
+                log_message(client_ip, client_port, "LIST_USERS", "OK");
                 break;
             }
             

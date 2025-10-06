@@ -92,35 +92,58 @@ int build_telemetry_message(char* buffer, VehicleState* state) {
     return build_response(buffer, MSG_TELEMETRY_DATA, data);
 }
 
+// Tabla de comandos
+static const struct {
+    const char* name;
+    CommandType type;
+} command_table[] = {
+    {"SPEED_UP", CMD_SPEED_UP},
+    {"SLOW_DOWN", CMD_SLOW_DOWN},
+    {"TURN_LEFT", CMD_TURN_LEFT},
+    {"TURN_RIGHT", CMD_TURN_RIGHT},
+    {NULL, CMD_UNKNOWN}
+};
+
 CommandType parse_command(const char* cmd_str) {
-    if (strcmp(cmd_str, "SPEED_UP") == 0) return CMD_SPEED_UP;
-    if (strcmp(cmd_str, "SLOW_DOWN") == 0) return CMD_SLOW_DOWN;
-    if (strcmp(cmd_str, "TURN_LEFT") == 0) return CMD_TURN_LEFT;
-    if (strcmp(cmd_str, "TURN_RIGHT") == 0) return CMD_TURN_RIGHT;
+    for (int i = 0; command_table[i].name != NULL; i++) {
+        if (strcmp(cmd_str, command_table[i].name) == 0) {
+            return command_table[i].type;
+        }
+    }
     return CMD_UNKNOWN;
 }
 
 const char* command_to_string(CommandType cmd) {
-    switch (cmd) {
-        case CMD_SPEED_UP: return "SPEED_UP";
-        case CMD_SLOW_DOWN: return "SLOW_DOWN";
-        case CMD_TURN_LEFT: return "TURN_LEFT";
-        case CMD_TURN_RIGHT: return "TURN_RIGHT";
-        default: return "UNKNOWN";
+    for (int i = 0; command_table[i].name != NULL; i++) {
+        if (command_table[i].type == cmd) {
+            return command_table[i].name;
+        }
     }
+    return "UNKNOWN";
 }
 
+// Similar para tipos de mensaje
+static const struct {
+    const char* name;
+    MessageType type;
+} message_table[] = {
+    {"CONNECT", MSG_CONNECT},
+    {"AUTH", MSG_AUTH},
+    {"GET_TELEMETRY", MSG_GET_TELEMETRY},
+    {"COMMAND", MSG_COMMAND},
+    {"LIST_USERS", MSG_LIST_USERS},
+    {"DISCONNECT", MSG_DISCONNECT},
+    {"RESPONSE_OK", MSG_RESPONSE_OK},
+    {"RESPONSE_ERROR", MSG_RESPONSE_ERROR},
+    {"TELEMETRY_DATA", MSG_TELEMETRY_DATA},
+    {NULL, MSG_CONNECT}
+};
+
 const char* message_type_to_string(MessageType type) {
-    switch (type) {
-        case MSG_CONNECT: return "CONNECT";
-        case MSG_AUTH: return "AUTH";
-        case MSG_GET_TELEMETRY: return "GET_TELEMETRY";
-        case MSG_COMMAND: return "COMMAND";
-        case MSG_LIST_USERS: return "LIST_USERS";
-        case MSG_DISCONNECT: return "DISCONNECT";
-        case MSG_RESPONSE_OK: return "RESPONSE_OK";
-        case MSG_RESPONSE_ERROR: return "RESPONSE_ERROR";
-        case MSG_TELEMETRY_DATA: return "TELEMETRY_DATA";
-        default: return "UNKNOWN";
+    for (int i = 0; message_table[i].name != NULL; i++) {
+        if (message_table[i].type == type) {
+            return message_table[i].name;
+        }
     }
+    return "UNKNOWN";
 }

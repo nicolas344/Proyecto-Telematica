@@ -2,10 +2,38 @@
 #include "logger.h"
 #include <time.h>
 #include <string.h>
-#include <stdlib.h>
+#include <stdarg.h>
 
 static FILE* log_file_handle = NULL;
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Función unificada de logging
+static void write_log(FILE* stream, const char* format, ...) {
+    pthread_mutex_lock(&log_mutex);
+    
+    time_t now = time(NULL);
+    struct tm* tm_info = localtime(&now);
+    char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+    
+    fprintf(stream, "[%s] ", timestamp);
+    if (log_file_handle && stream != log_file_handle) {
+        fprintf(log_file_handle, "[%s] ", timestamp);
+    }
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(stream, format, args);
+    if (log_file_handle && stream != log_file_handle) {
+        va_start(args, format);
+        vfprintf(log_file_handle, format, args);
+        fflush(log_file_handle);
+    }
+    va_end(args);
+    
+    fflush(stream);
+    pthread_mutex_unlock(&log_mutex);
+}
 
 void logger_init(const char* log_file) {
     pthread_mutex_lock(&log_mutex);
@@ -48,71 +76,13 @@ void logger_close() {
 }
 
 void log_message(const char* client_ip, int client_port, const char* msg_type, const char* content) {
-    pthread_mutex_lock(&log_mutex);
-    
-    time_t now = time(NULL);
-    struct tm* tm_info = localtime(&now);
-    char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
-    
-    char log_entry[2048];
-    snprintf(log_entry, sizeof(log_entry), 
-             "[%s] CLIENT[%s:%d] %s: %s\n", 
-             timestamp, client_ip, client_port, msg_type, content);
-    
-    // Escribir en archivo
-    if (log_file_handle != NULL) {
-        fprintf(log_file_handle, "%s", log_entry);
-        fflush(log_file_handle);
-    }
-    
-    // Escribir en consola
-    fprintf(stdout, "%s", log_entry);
-    fflush(stdout);
-    
-    pthread_mutex_unlock(&log_mutex);
+    write_log(stdout, "CLIENT[%s:%d] %s: %s\n", client_ip, client_port, msg_type, content);
 }
 
 void log_error(const char* error_msg) {
-    pthread_mutex_lock(&log_mutex);
-    
-    time_t now = time(NULL);
-    struct tm* tm_info = localtime(&now);
-    char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
-    
-    char log_entry[2048];
-    snprintf(log_entry, sizeof(log_entry), "[%s] ERROR: %s\n", timestamp, error_msg);
-    
-    if (log_file_handle != NULL) {
-        fprintf(log_file_handle, "%s", log_entry);
-        fflush(log_file_handle);
-    }
-    
-    fprintf(stderr, "%s", log_entry);
-    fflush(stderr);
-    
-    pthread_mutex_unlock(&log_mutex);
+    write_log(stderr, "ERROR: %s\n", error_msg);
 }
 
 void log_info(const char* info_msg) {
-    pthread_mutex_lock(&log_mutex);
-    
-    time_t now = time(NULL);
-    struct tm* tm_info = localtime(&now);
-    char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
-    
-    char log_entry[2048];
-    snprintf(log_entry, sizeof(log_entry), "[%s] INFO: %s\n", timestamp, info_msg);
-    
-    if (log_file_handle != NULL) {
-        fprintf(log_file_handle, "%s", log_entry);
-        fflush(log_file_handle);
-    }
-    
-    fprintf(stdout, "%s", log_entry);
-    fflush(stdout);
-    
-    pthread_mutex_unlock(&log_mutex);
+    write_log(stdout, "INFO: %s\n", info_msg);
 }
